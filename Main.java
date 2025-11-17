@@ -1,56 +1,83 @@
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) throws Exception {
+        Scanner scanner = new Scanner(System.in);
 
-        Scanner sc = new Scanner(System.in);
-        String input;
-
-        while (true) {
+        boolean running = true;
+        while (running) {
             System.out.print("$ ");
-            input = sc.nextLine();
-            if (handleExit(input)) {
-                break;
+            String input = scanner.nextLine();
+
+            String[] words = input.split(" ");
+            String command = words[0];
+            String[] rest = Arrays.copyOfRange(words, 1, words.length);
+
+            String result = String.join(" ", rest);
+
+            if (Objects.equals(command, "exit")) {
+                running = false;
+            } else if (Objects.equals(command, "echo")) {
+                System.out.println(result);
+            } else if (Objects.equals(command, "pwd")) {
+                System.out.println(System.getProperty("user.dir"));
+            } else if (Objects.equals(command, "cd")) {
+                changeDirectory(result);
+            } else if (command.equals("type")) {
+                System.out.println(type(result));
+            } else {
+                String typeResult = type(command);
+                if (typeResult.endsWith(": not found")) {
+                    System.out.println(typeResult);
+                } else {
+                    Process process = Runtime.getRuntime().exec(input.split(" "));
+                    process.getInputStream().transferTo(System.out);
+                }
             }
-            if (handleEcho(input)) {
-                continue;
-            }
-            if (handleType(input)) {
-                continue;
-            }
-            System.out.println(input + ": command not found");
+
         }
+        scanner.close();
     }
 
-    static boolean handleExit(String input) {
-        if (input.equals("exit 0") || input.equals("exit 1")) {
-            return true;
-        }
-        return false;
-    }
+    public static String type(String command) {
+        String[] commands = { "exit", "echo", "type", "pwd", "cd" };
 
-    static boolean handleEcho(String input) {
-        if (input.startsWith("echo")) {
-            System.out.println(input.substring(4).trim());
-            return true;
-        }
-        return false;
-    }
-
-    static boolean handleType(String input) {
-        if (input.startsWith("type")) {
-            String arg = input.length() > 5 ? input.substring(5).trim() : "";
-            if (arg.startsWith("exit")) {
-                System.out.println("exit is a shell builtin");
-            } else if (arg.startsWith("echo")) {
-                System.out.println("echo is a shell builtin");
-            } else if (arg.startsWith("type")) {
-                System.out.println("type is a shell builtin");
-            } else if (!arg.isEmpty()) {
-                System.out.println(arg + ": not found");
+        for (int i = 0; i < commands.length; i++) {
+            if (Objects.equals(commands[i], command)) {
+                return command + " is a shell builtin";
             }
-            return true;
         }
-        return false;
+
+        String path_commands = System.getenv("PATH");
+        if (path_commands != null && !path_commands.isEmpty()) {
+            String[] path_command = path_commands.split(File.pathSeparator);
+            for (int i = 0; i < path_command.length; i++) {
+                File file = new File(path_command[i], command);
+                if (file.isFile() && file.canExecute()) {
+                    return command + " is " + file.getAbsolutePath();
+                }
+            }
+        }
+
+        return command + ": not found";
+    }
+
+    public static void changeDirectory(String destination) throws IOException {
+        File target = new File(destination);
+
+        if (!target.isAbsolute()) {
+            target = new File(System.getProperty("user.dir"), destination);
+        }
+        target = new File(target.getAbsolutePath()).getCanonicalFile();
+
+        if (target.isDirectory()) {
+            System.setProperty("user.dir", target.getAbsolutePath());
+        } else {
+            System.out.println("cd: " + destination + ": No such file or directory");
+        }
     }
 }
