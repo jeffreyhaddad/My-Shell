@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -13,16 +15,17 @@ public class Main {
             System.out.print("$ ");
             String input = scanner.nextLine();
 
-            String[] words = input.split(" ");
+            String[] words = tokenize(input);
+            if (words.length == 0)
+                continue; // ignore empty input
             String command = words[0];
             String[] rest = Arrays.copyOfRange(words, 1, words.length);
-
             String result = String.join(" ", rest);
 
             if (Objects.equals(command, "exit")) {
                 running = false;
             } else if (Objects.equals(command, "echo")) {
-                System.out.println(result);
+                System.out.println(String.join(" ", rest));
             } else if (Objects.equals(command, "pwd")) {
                 System.out.println(System.getProperty("user.dir"));
             } else if (Objects.equals(command, "cd")) {
@@ -34,8 +37,15 @@ public class Main {
                 if (typeResult.endsWith(": not found")) {
                     System.out.println(typeResult);
                 } else {
-                    Process process = Runtime.getRuntime().exec(input.split(" "));
+                    String[] parts = new String[rest.length + 1];
+                    parts[0] = command;
+                    System.arraycopy(rest, 0, parts, 1, rest.length);
+                    ProcessBuilder pb = new ProcessBuilder(parts);
+                    pb.directory(new File(System.getProperty("user.dir")));
+                    Process process = pb.start();
                     process.getInputStream().transferTo(System.out);
+                    process.getErrorStream().transferTo(System.err);
+                    process.waitFor();
                 }
             }
 
@@ -67,6 +77,12 @@ public class Main {
     }
 
     public static void changeDirectory(String destination) throws IOException {
+        if (destination.equals("~")) {
+            destination = System.getenv("HOME");
+        } else if (destination.startsWith("~/")) {
+            destination = System.getenv("HOME") + destination.substring(1);
+        }
+
         File target = new File(destination);
 
         if (!target.isAbsolute()) {
@@ -80,4 +96,41 @@ public class Main {
             System.out.println("cd: " + destination + ": No such file or directory");
         }
     }
+
+    public static String[] tokenize(String input) {
+        List<String> tokens = new ArrayList<>();
+        int i = 0;
+        int n = input == null ? 0 : input.length();
+
+        while (i < n) {
+            while (i < n && Character.isWhitespace(input.charAt(i))) {
+                i++;
+            }
+            if (i >= n)
+                break;
+
+            StringBuilder token = new StringBuilder();
+            while (i < n && !Character.isWhitespace(input.charAt(i))) {
+                if (input.charAt(i) == '\'') {
+                    int start = i + 1;
+                    int end = input.indexOf('\'', start);
+                    if (end == -1) {
+                        token.append(input.substring(start));
+                        i = n;
+                    } else {
+                        token.append(input.substring(start, end));
+                        i = end + 1;
+                    }
+                } else {
+                    token.append(input.charAt(i));
+                    i++;
+                }
+            }
+            if (token.length() > 0) {
+                tokens.add(token.toString());
+            }
+        }
+        return tokens.toArray(new String[0]);
+    }
+
 }
