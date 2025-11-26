@@ -123,13 +123,28 @@ public class Main {
                     }
                 } else if (input.charAt(i) == '"') {
                     int start = i + 1;
-                    int end = input.indexOf('"', start);
-                    if (end == -1) {
-                        token.append(input.substring(start));
-                        i = n;
-                    } else {
+                    int end = start;
+                    while (end < n) {
+                        if (input.charAt(end) == '\\' && end + 1 < n) {
+                            char nextChar = input.charAt(end + 1);
+                            if (nextChar == '"' || nextChar == '\\' || nextChar == '$') {
+                                token.append(nextChar);
+                                end += 2;
+                            } else {
+                                token.append('\\');
+                                end++;
+                            }
+                        } else if (input.charAt(end) == '"') {
+                            i = end + 1;
+                            break;
+                        } else {
+                            token.append(input.charAt(end));
+                            end++;
+                        }
+                    }
+                    if (end >= n) {
                         token.append(input.substring(start, end));
-                        i = end + 1;
+                        i = n;
                     }
                 } else if (input.charAt(i) == '\\') {
                     if (i + 1 < n) {
