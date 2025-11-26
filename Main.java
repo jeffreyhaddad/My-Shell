@@ -131,6 +131,13 @@ public class Main {
                         token.append(input.substring(start, end));
                         i = end + 1;
                     }
+                } else if (input.charAt(i) == '\\') {
+                    if (i + 1 < n) {
+                        token.append(input.charAt(i + 1));
+                        i += 2;
+                    } else {
+                        i++;
+                    }
                 } else {
                     token.append(input.charAt(i));
                     i++;
