@@ -121,6 +121,16 @@ public class Main {
                         token.append(input.substring(start, end));
                         i = end + 1;
                     }
+                } else if (input.charAt(i) == '"') {
+                    int start = i + 1;
+                    int end = input.indexOf('"', start);
+                    if (end == -1) {
+                        token.append(input.substring(start));
+                        i = n;
+                    } else {
+                        token.append(input.substring(start, end));
+                        i = end + 1;
+                    }
                 } else {
                     token.append(input.charAt(i));
                     i++;
