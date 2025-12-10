@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Scanner;
@@ -18,34 +19,72 @@ public class Main {
             String[] words = tokenize(input);
             if (words.length == 0)
                 continue; // ignore empty input
+
+            // Check for output redirection
+            File redirectFile = null;
+            if (words.length > 2 && (words[words.length - 2].equals(">") || words[words.length - 2].equals("1>"))) {
+                redirectFile = new File(words[words.length - 1]);
+                // Remove the > and filename from words
+                words = Arrays.copyOfRange(words, 0, words.length - 2);
+            }
+
             String command = words[0];
             String[] rest = Arrays.copyOfRange(words, 1, words.length);
             String result = String.join(" ", rest);
 
-            if (Objects.equals(command, "exit")) {
-                running = false;
-            } else if (Objects.equals(command, "echo")) {
-                System.out.println(String.join(" ", rest));
-            } else if (Objects.equals(command, "pwd")) {
-                System.out.println(System.getProperty("user.dir"));
-            } else if (Objects.equals(command, "cd")) {
-                changeDirectory(result);
-            } else if (command.equals("type")) {
-                System.out.println(type(result));
-            } else {
-                String typeResult = type(command);
-                if (typeResult.endsWith(": not found")) {
-                    System.out.println(typeResult);
+            // Redirect stdout if needed
+            PrintStream originalOut = System.out;
+            PrintStream redirectOut = null;
+            if (redirectFile != null) {
+                try {
+                    redirectOut = new PrintStream(redirectFile);
+                    System.setOut(redirectOut);
+                } catch (Exception e) {
+                    System.setOut(originalOut);
+                    System.err.println("Error redirecting to file: " + e.getMessage());
+                    continue;
+                }
+            }
+
+            try {
+                if (Objects.equals(command, "exit")) {
+                    running = false;
+                } else if (Objects.equals(command, "echo")) {
+                    System.out.println(String.join(" ", rest));
+                } else if (Objects.equals(command, "pwd")) {
+                    System.out.println(System.getProperty("user.dir"));
+                } else if (Objects.equals(command, "cd")) {
+                    changeDirectory(result);
+                } else if (command.equals("type")) {
+                    System.out.println(type(result));
                 } else {
-                    String[] parts = new String[rest.length + 1];
-                    parts[0] = command;
-                    System.arraycopy(rest, 0, parts, 1, rest.length);
-                    ProcessBuilder pb = new ProcessBuilder(parts);
-                    pb.directory(new File(System.getProperty("user.dir")));
-                    Process process = pb.start();
-                    process.getInputStream().transferTo(System.out);
-                    process.getErrorStream().transferTo(System.err);
-                    process.waitFor();
+                    String typeResult = type(command);
+                    if (typeResult.endsWith(": not found")) {
+                        System.out.println(typeResult);
+                    } else {
+                        String[] parts = new String[rest.length + 1];
+                        parts[0] = command;
+                        System.arraycopy(rest, 0, parts, 1, rest.length);
+
+                        ProcessBuilder pb = new ProcessBuilder(parts);
+                        pb.directory(new File(System.getProperty("user.dir")));
+
+                        // Redirect output if needed
+                        if (redirectFile != null) {
+                            pb.redirectOutput(redirectFile);
+                        }
+
+                        Process process = pb.start();
+                        process.getInputStream().transferTo(System.out);
+                        process.getErrorStream().transferTo(System.err);
+                        process.waitFor();
+                    }
+                }
+            } finally {
+                // Restore stdout if it was redirected
+                if (redirectOut != null) {
+                    redirectOut.close();
+                    System.setOut(originalOut);
                 }
             }
 
